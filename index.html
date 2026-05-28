@@ -6,7 +6,168 @@
   <title>AsistenciaPro — Control de Trabajadores</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+  // QR Generator — genera SVG sin dependencias externas
+  // Basado en el estándar QR Code (versión 1-10, corrección M)
+  var QRGen = (function() {
+    var GF = [], LOG = [], EXP = [];
+    (function() {
+      var x = 1;
+      for (var i = 0; i < 256; i++) {
+        EXP[i] = x; LOG[x] = i;
+        x = x << 1; if (x & 0x100) x ^= 0x11d;
+      }
+      for (var i = 256; i < 512; i++) EXP[i] = EXP[i - 255];
+    })();
+    function gfMul(a, b) { return (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]]; }
+    function gfPoly(e) {
+      var p = [1];
+      for (var i = 0; i < e; i++) {
+        var r = [1, EXP[i]];
+        var t = new Array(p.length + r.length - 1).fill(0);
+        for (var j = 0; j < p.length; j++)
+          for (var k = 0; k < r.length; k++)
+            t[j+k] ^= gfMul(p[j], r[k]);
+        p = t;
+      }
+      return p;
+    }
+    function gfPolyMod(msg, gen) {
+      var res = msg.slice();
+      for (var i = 0; i < msg.length; i++) {
+        var c = res[i];
+        if (c !== 0) for (var j = 1; j < gen.length; j++) res[i+j] ^= gfMul(gen[j], c);
+      }
+      return res.slice(msg.length);
+    }
+
+    // Encode byte mode
+    function encode(text) {
+      var bytes = [];
+      for (var i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 0xff);
+
+      // Pick version
+      var ecTable = [
+        [0,0,0,0], // dummy
+        [19,16,13,9],[34,28,22,16],[55,44,34,26],[80,64,48,36],[108,86,62,46],
+        [136,108,76,60],[156,124,88,66],[194,154,110,86],[232,182,132,100],[274,216,154,122]
+      ];
+      var ver = 1;
+      for (var v = 1; v <= 10; v++) { if (ecTable[v][1] >= bytes.length + 3) { ver = v; break; } }
+
+      var ecLevel = 1; // M
+      var dataCapacity = ecTable[ver][ecLevel];
+
+      // Build data codewords
+      var bits = [];
+      function addBits(val, len) { for (var i = len-1; i >= 0; i--) bits.push((val>>i)&1); }
+      addBits(0b0100, 4);
+      addBits(bytes.length, 8);
+      for (var i = 0; i < bytes.length; i++) addBits(bytes[i], 8);
+      addBits(0, 4);
+      while (bits.length % 8) bits.push(0);
+      var codewords = [];
+      for (var i = 0; i < bits.length; i += 8) {
+        var b = 0; for (var j = 0; j < 8; j++) b = (b<<1)|bits[i+j];
+        codewords.push(b);
+      }
+      var pad = [0xEC, 0x11];
+      while (codewords.length < dataCapacity) codewords.push(pad[(codewords.length - Math.floor(bits.length/8)) % 2]);
+
+      // EC codewords table [version][ecLevel M]
+      var ecCount = [[0],[10],[16],[26],[18],[24],[16],[18],[22],[22],[26]];
+      var gen = gfPoly(ecCount[ver][0]);
+      var ec = gfPolyMod(codewords.concat(new Array(gen.length-1).fill(0)), gen);
+      var all = codewords.concat(ec);
+
+      // Build matrix
+      var size = ver * 4 + 17;
+      var mat = Array.from({length:size}, () => new Array(size).fill(-1));
+      var used = Array.from({length:size}, () => new Array(size).fill(false));
+
+      function setFunc(r,c,v) { mat[r][c]=v; used[r][c]=true; }
+      function finder(r,c) {
+        for (var dr=-1;dr<=7;dr++) for(var dc=-1;dc<=7;dc++) {
+          var rr=r+dr, cc=c+dc;
+          if(rr<0||rr>=size||cc<0||cc>=size) continue;
+          var inPat = dr>=0&&dr<=6&&dc>=0&&dc<=6;
+          var isB = (dr===0||dr===6||dc===0||dc===6||( dr>=2&&dr<=4&&dc>=2&&dc<=4));
+          setFunc(rr,cc, inPat?(isB?1:0):-1+1-1); // border=0
+          used[rr][cc]=true;
+        }
+        // rewrite correctly
+        for(var dr=0;dr<=6;dr++) for(var dc=0;dc<=6;dc++) {
+          var rr=r+dr,cc=c+dc;
+          if(rr<0||rr>=size||cc<0||cc>=size) continue;
+          var v=(dr===0||dr===6||dc===0||dc===6||(dr>=2&&dr<=4&&dc>=2&&dc<=4))?1:0;
+          setFunc(rr,cc,v);
+        }
+      }
+      finder(0,0); finder(0,size-7); finder(size-7,0);
+      // separators already covered; timing
+      for(var i=8;i<size-8;i++) { setFunc(6,i,(i%2===0)?1:0); setFunc(i,6,(i%2===0)?1:0); }
+      // dark module
+      setFunc(size-8,8,1);
+      // format info (mask 0, M level = 01)
+      var fmtBits = [1,1,0,1,0,1,0,0,0,0,1,0,1,0,1];
+      var fi = [[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[7,8],[8,8],[8,7],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0]];
+      var fi2 = [[8,size-1],[8,size-2],[8,size-3],[8,size-4],[8,size-5],[8,size-6],[8,size-7],[size-8,8],[size-7,8],[size-6,8],[size-5,8],[size-4,8],[size-3,8],[size-2,8],[size-1,8]];
+      for(var i=0;i<15;i++) { setFunc(fi[i][0],fi[i][1],fmtBits[i]); setFunc(fi2[i][0],fi2[i][1],fmtBits[i]); }
+
+      // alignment patterns for ver>=2
+      var alignPos = [[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,28,46],[6,32,50]];
+      if(ver>=2) {
+        var pos=alignPos[ver];
+        for(var ai=0;ai<pos.length;ai++) for(var aj=0;aj<pos.length;aj++) {
+          var ar=pos[ai],ac=pos[aj];
+          if(used[ar][ac]) continue;
+          for(var dr=-2;dr<=2;dr++) for(var dc=-2;dc<=2;dc++) {
+            var v=(dr===0&&dc===0)?1:((Math.abs(dr)===2||Math.abs(dc)===2)?1:0);
+            if(Math.abs(dr)===1&&Math.abs(dc)===1) v=0;
+            if(Math.abs(dr)===2||Math.abs(dc)===2) v=1; else if(Math.abs(dr)===1||Math.abs(dc)===1) v=0; else v=1;
+            setFunc(ar+dr,ac+dc,v);
+          }
+        }
+      }
+
+      // Place data
+      var idx=0, allBits=[];
+      for(var i=0;i<all.length;i++) for(var b=7;b>=0;b--) allBits.push((all[i]>>b)&1);
+      var col=size-1, going=-1;
+      while(col>0) {
+        if(col===6) col--;
+        for(var row=(going===-1?size-1:0); going===-1?row>=0:row<size; row+=going) {
+          for(var c2=0;c2<2;c2++) {
+            var cc=col-c2, rr=row;
+            if(!used[rr][cc] && idx<allBits.length) {
+              var bit=allBits[idx++];
+              // mask 0: (row+col)%2===0
+              if((rr+cc)%2===0) bit^=1;
+              mat[rr][cc]=bit;
+            }
+          }
+        }
+        going=-going; col-=2;
+      }
+
+      return {mat,size};
+    }
+
+    function toSVG(text, px) {
+      px = px||4;
+      var q = encode(text);
+      var mat=q.mat, size=q.size;
+      var total = (size+8)*px;
+      var rects='';
+      for(var r=0;r<size;r++) for(var c=0;c<size;c++) {
+        if(mat[r][c]===1) rects+=`<rect x="${(c+4)*px}" y="${(r+4)*px}" width="${px}" height="${px}" fill="#000"/>`;
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${total}" height="${total}" viewBox="0 0 ${total} ${total}"><rect width="${total}" height="${total}" fill="#fff"/>${rects}</svg>`;
+    }
+
+    return { toSVG };
+  })();
+  </script>
   <style>
     :root {
       --bg: #F5F3EE;
@@ -1135,17 +1296,9 @@ function generateQR() {
     id: w.id
   });
 
-  outputArea.innerHTML = '<div id="qr-canvas-wrap"></div>';
+  const svg = QRGen.toSVG(payload, 4);
+  outputArea.innerHTML = `<div id="qr-canvas-wrap" style="line-height:0">${svg}</div>`;
   outputArea.classList.add('has-qr');
-
-  qrInstance = new QRCode(document.getElementById('qr-canvas-wrap'), {
-    text: payload,
-    width: 200,
-    height: 200,
-    colorDark: '#1A1916',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
 
   document.getElementById('qr-label').innerHTML = `<strong>${w.nombre}</strong><br><span style="font-family:'DM Mono',monospace;font-size:11px">${w.rut}</span>`;
   document.getElementById('btn-download-qr').style.display = 'inline-flex';
@@ -1153,13 +1306,15 @@ function generateQR() {
 }
 
 function downloadQR() {
-  const canvas = document.querySelector('#qr-canvas-wrap canvas');
-  if (!canvas) { showToast('⚠️ Genera el QR primero', 'error'); return; }
+  const wrap = document.getElementById('qr-canvas-wrap');
+  if (!wrap) { showToast('⚠️ Genera el QR primero', 'error'); return; }
   const id = document.getElementById('qr-select').value;
   const w = state.workers.find(x => x.id === id);
+  const svg = wrap.innerHTML;
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
   const link = document.createElement('a');
-  link.download = `QR_${w.rut.replace(/\./g,'').replace('-','_')}_${w.nombre.split(' ')[0]}.png`;
-  link.href = canvas.toDataURL('image/png');
+  link.download = `QR_${w.rut.replace(/\./g,'').replace('-','_')}_${w.nombre.split(' ')[0]}.svg`;
+  link.href = URL.createObjectURL(blob);
   link.click();
   showToast('⬇️ QR descargado');
 }
@@ -1185,27 +1340,19 @@ function renderPrintSheet() {
   state.workers.forEach((w, i) => {
     const div = document.createElement('div');
     div.className = 'print-card';
+    const payload = JSON.stringify({
+      rut: w.rut, nombre: w.nombre, cargo: w.cargo,
+      empresa: state.empresa.nombre || '', id: w.id
+    });
+    const svg = QRGen.toSVG(payload, 3);
     div.innerHTML = `
-      <div id="pqr-${i}" style="display:inline-block"></div>
+      <div style="display:inline-block;line-height:0">${svg}</div>
       ${showName ? `<div class="print-name">${w.nombre}</div>` : ''}
       ${showRut ? `<div class="print-rut">${w.rut}</div>` : ''}
       ${showCargo ? `<div class="print-role">${w.cargo}</div>` : ''}
       ${showEmp && state.empresa.nombre ? `<div class="print-role">${state.empresa.nombre}</div>` : ''}
     `;
     grid.appendChild(div);
-
-    const payload = JSON.stringify({
-      rut: w.rut, nombre: w.nombre, cargo: w.cargo,
-      empresa: state.empresa.nombre || '', id: w.id
-    });
-
-    setTimeout(() => {
-      new QRCode(document.getElementById(`pqr-${i}`), {
-        text: payload, width: 100, height: 100,
-        colorDark: '#000', colorLight: '#fff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }, i * 30);
   });
 }
 
