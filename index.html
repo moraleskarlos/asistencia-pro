@@ -1425,12 +1425,24 @@ async function startScanner() {
     document.getElementById('status-dot').className = 'pulse';
     document.getElementById('status-text').textContent = 'Cámara activa';
 
-    // Cargar jsQR dinámicamente
+    // Cargar jsQR con múltiples fuentes de respaldo
     if (!window.jsQR) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js');
+      const cdns = [
+        'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+        'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js'
+      ];
+      let loaded = false;
+      for (const cdn of cdns) {
+        try { await loadScript(cdn); loaded = true; break; } catch(e) {}
+      }
+      if (!loaded) {
+        showToast('⚠️ Sin conexión. Usa registro manual.', 'error');
+        stopScanner(); return;
+      }
     }
     startScanLoop(video);
-    showToast('📷 Cámara activada — apunta al QR', 'success');
+    showToast('📷 Cámara activa — apunta al QR', 'success');
   } catch (err) {
     let msg = '⚠️ No se pudo acceder a la cámara.';
     if (err.name === 'NotAllowedError') msg = '⚠️ Permiso de cámara denegado. Debes permitir el acceso.';
