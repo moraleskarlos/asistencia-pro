@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AsistenciaPro — Control de Trabajadores</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #F5F3EE;
+      --surface: #FFFFFF;
+      --surface2: #F0EDE6;
+      --border: #E2DDD4;
+      --border2: #C8C2B6;
+      --text: #1A1916;
+      --text2: #6B6560;
+      --text3: #9E9890;
+      --accent: #1A6B4A;
+      --accent-bg: #E8F5EF;
+      --accent-text: #0F4A33;
+      --danger: #C0392B;
+      --danger-bg: #FDECEA;
+      --warn: #B7621A;
+      --warn-bg: #FDF3E8;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ── */
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 220px;
+      background: var(--text);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logo .logo-mark {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .logo-text { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
+    .logo-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+    .nav { padding: 16px 12px; flex: 1; }
+    .nav-section { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.3); letter-spacing: 1px; text-transform: uppercase; padding: 0 8px; margin: 12px 0 6px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--radius);
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      font-size: 13px; font-weight: 400;
+      transition: all 0.15s;
+      margin-bottom: 2px;
+      border: none; background: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+    .nav-item.active { background: var(--accent); color: #fff; font-weight: 500; }
+    .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.7);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 99px;
+      font-family: 'DM Mono', monospace;
+    }
+    .nav-item.active .nav-badge { background: rgba(255,255,255,0.25); color: #fff; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+    }
+    .sidebar-footer strong { color: rgba(255,255,255,0.45); display: block; margin-bottom: 2px; }
+
+    .main { margin-left: 220px; flex: 1; padding: 32px; min-height: 100vh; }
+
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Page header ── */
+    .page-header { margin-bottom: 28px; }
+    .page-header h1 { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+    .page-header p { font-size: 13px; color: var(--text2); margin-top: 3px; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 13px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Stat cards ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 28px; font-weight: 600; color: var(--text); margin: 4px 0 2px; letter-spacing: -1px; font-family: 'DM Mono', monospace; }
+    .stat-sub { font-size: 12px; color: var(--text2); }
+    .stat-card.accent { background: var(--accent); border-color: var(--accent); }
+    .stat-card.accent .stat-label { color: rgba(255,255,255,0.6); }
+    .stat-card.accent .stat-value { color: #fff; }
+    .stat-card.accent .stat-sub { color: rgba(255,255,255,0.65); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #155a3d; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #f5c6c2; }
+    .btn-danger:hover { background: #f9d7d4; }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn-icon { padding: 7px; border-radius: 8px; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-icon:hover { background: var(--border); color: var(--text); }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.2px; }
+    .form-input, .form-select {
+      width: 100%; padding: 9px 12px;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px; color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--accent); background: #fff; }
+    .form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── Workers table ── */
+    .workers-table { width: 100%; border-collapse: collapse; }
+    .workers-table th {
+      text-align: left; padding: 10px 12px;
+      font-size: 11px; font-weight: 600; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .workers-table td { padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .workers-table tr:last-child td { border-bottom: none; }
+    .workers-table tr:hover td { background: var(--bg); }
+    .worker-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600;
+      flex-shrink: 0;
+    }
+    .worker-cell { display: flex; align-items: center; gap: 10px; }
+    .worker-name { font-weight: 500; font-size: 13px; }
+    .worker-rut { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 500;
+      padding: 3px 9px; border-radius: 99px;
+    }
+    .badge-green { background: var(--accent-bg); color: var(--accent-text); }
+    .badge-gray { background: var(--surface2); color: var(--text2); }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); }
+    .actions-cell { display: flex; gap: 6px; justify-content: flex-end; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 48px 24px;
+      color: var(--text3);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state h3 { font-size: 15px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+    .empty-state p { font-size: 13px; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      width: 480px; max-width: calc(100vw - 40px);
+      box-shadow: var(--shadow-md);
+      transform: scale(0.97) translateY(8px);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ── QR Page ── */
+    .qr-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; }
+    .qr-preview-box {
+      border: 2px dashed var(--border2);
+      border-radius: var(--radius-lg);
+      min-height: 260px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; gap: 12px;
+      background: var(--bg);
+    }
+    .qr-preview-box.has-qr { border-style: solid; border-color: var(--border); background: var(--surface); }
+    .qr-worker-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      width: 100%;
+      display: flex; gap: 12px; align-items: center;
+    }
+    .qr-info-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+    .qr-info-label { color: var(--text3); }
+    .qr-info-value { font-weight: 500; font-family: 'DM Mono', monospace; font-size: 11px; }
+
+    /* ── Impresion ── */
+    .print-sheet {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+    .print-card {
+      border: 1px solid #ddd;
+      padding: 16px;
+      text-align: center;
+      page-break-inside: avoid;
+    }
+    .print-card .print-name { font-weight: 600; font-size: 13px; margin-top: 8px; }
+    .print-card .print-rut { font-size: 11px; color: #666; font-family: monospace; }
+    .print-card .print-role { font-size: 11px; color: #999; }
+
+    @media print {
+      .sidebar, .main > *:not(.print-area) { display: none !important; }
+      .main { margin: 0; padding: 0; }
+      .print-area { display: block !important; }
+      body { background: white; }
+    }
+
+    /* ── Search bar ── */
+    .search-bar {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 8px 12px;
+      margin-bottom: 16px;
+    }
+    .search-bar input {
+      border: none; background: none; outline: none;
+      font-size: 13px; color: var(--text); flex: 1;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .search-bar .search-icon { color: var(--text3); font-size: 15px; }
+
+    /* ── Notification toast ── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--text); color: #fff;
+      padding: 12px 18px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow-md);
+      z-index: 9999;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--accent); }
+    .toast.error { background: var(--danger); }
+
+    /* ── Scanner ── */
+    .scanner-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .scanner-box {
+      background: #111;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .scanner-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .scanner-frame {
+      width: 60%; aspect-ratio: 1;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+      position: relative;
+    }
+    .scanner-frame::before, .scanner-frame::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      border-color: #fff;
+      border-style: solid;
+    }
+    .scanner-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+    .scanner-frame::after  { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    .scanner-line {
+      position: absolute;
+      left: 8%; right: 8%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scanLine 2s ease-in-out infinite;
+      top: 10%;
+    }
+    @keyframes scanLine {
+      0%   { top: 10%; opacity: 1; }
+      48%  { top: 88%; opacity: 1; }
+      50%  { top: 88%; opacity: 0; }
+      52%  { top: 10%; opacity: 0; }
+      54%  { top: 10%; opacity: 1; }
+      100% { top: 10%; opacity: 1; }
+    }
+    .scanner-idle {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; color: rgba(255,255,255,0.4);
+      font-size: 13px; text-align: center; padding: 20px;
+    }
+    .scanner-idle-icon { font-size: 40px; opacity: 0.3; }
+    .scan-result-card {
+      background: var(--accent-bg);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .scan-result-name { font-size: 16px; font-weight: 600; color: var(--accent-text); }
+    .scan-result-rut  { font-size: 12px; color: var(--accent); font-family: 'DM Mono', monospace; margin-top: 2px; }
+    .scan-result-meta { font-size: 12px; color: var(--text2); margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .log-table { width: 100%; border-collapse: collapse; }
+    .log-table th { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    .log-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+    .log-table tr:last-child td { border-bottom: none; }
+    .log-table tr:hover td { background: var(--bg); }
+    .time-chip { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); padding: 2px 7px; border-radius: 6px; color: var(--text2); }
+    .scanner-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .scanner-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 99px; }
+    .scanner-status.active { background: var(--accent-bg); color: var(--accent-text); }
+    .scanner-status.inactive { background: var(--surface2); color: var(--text2); }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+    .dot-inactive { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+    .manual-register-row { display: flex; gap: 8px; align-items: flex-end; }
+    .manual-register-row .form-input { flex: 1; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* ── Responsive mobile adjustments ── */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; }
+      .main { margin-left: 0; padding: 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .qr-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Empresa badge color variants ── */
+    .color-1 { background: #E8F5EF; color: #0F4A33; }
+    .color-2 { background: #E6F1FB; color: #0C447C; }
+    .color-3 { background: #FAEEDA; color: #633806; }
+    .color-4 { background: #FBEAF0; color: #4B1528; }
+    .color-5 { background: #EAF3DE; color: #173404; }
+    .color-6 { background: #FCEBEB; color: #501313; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🏗️</div>
+        <div>
+          <div class="logo-text">AsistenciaPro</div>
+          <div class="logo-sub">v2.0 — Etapa 2</div>
+        </div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <button class="nav-item active" onclick="showPage('resumen')">
+        <span class="nav-icon">📊</span> Resumen
+      </button>
+      <button class="nav-item" onclick="showPage('trabajadores')">
+        <span class="nav-icon">👷</span> Trabajadores
+        <span class="nav-badge" id="nav-badge-workers">0</span>
+      </button>
+      <div class="nav-section">Herramientas</div>
+      <button class="nav-item" onclick="showPage('qr')">
+        <span class="nav-icon">🔲</span> Generar QR
+      </button>
+      <button class="nav-item" onclick="showPage('imprimir')">
+        <span class="nav-icon">🖨️</span> Imprimir QR
+      </button>
+      <div class="nav-section">Próximo</div>
+      <button class="nav-item" onclick="showPage('scanner')">
+        <span class="nav-icon">📱</span> Escáner
+      </button>
+      <button class="nav-item" style="opacity:0.4; cursor:default;">
+        <span class="nav-icon">📈</span> Reportes
+        <span class="nav-badge">E3</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <strong id="empresa-nombre">Mi Empresa</strong>
+      Datos guardados localmente
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main class="main">
+
+    <!-- ═══ PÁGINA: RESUMEN ═══ -->
+    <div id="page-resumen" class="page active">
+      <div class="page-header header-row">
+        <div>
+          <h1>Resumen general</h1>
+          <p>Bienvenido al sistema de control de asistencia</p>
+        </div>
+        <button class="btn btn-primary" onclick="showPage('trabajadores'); openModal();">
+          ＋ Agregar trabajador
+        </button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">Trabajadores activos</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-sub">registrados en el sistema</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">QR generados</div>
+          <div class="stat-value" id="stat-qr">0</div>
+          <div class="stat-sub">listos para imprimir</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Empresa</div>
+          <div class="stat-value" style="font-size:18px; letter-spacing:0;" id="stat-empresa">—</div>
+          <div class="stat-sub">configurada</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">⚡ Inicio rápido</div>
+        <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px;">
+          <div style="background:var(--bg); border-radius:var(--radius); padding:16px;">
+            <div style="font-size:22px; margin-bottom:8px;">1️⃣</div>
+            <div style="font-weight:600; font-size:13px; margin-bottom:4px;">Configura la empresa</div>
+            <div style="font-size:12px; color:var(--text2);">Ingresa el nombre de tu empresa contratista abajo</div>
+          </div>
+          <div style="background:var(--bg); border-radius:var(--radius); padding:16px;">
+            <div style="font-size:22px; margin-bottom:8px;">2️⃣</div>
+            <div style="font-weight:600; font-size:13px; margin-bottom:4px;">Agrega trabajadores</div>
+            <div style="font-size:12px; color:var(--text2);">RUT, nombre completo y cargo de cada uno</div>
+          </div>
+          <div style="background:var(--bg); border-radius:var(--radius); padding:16px;">
+            <div style="font-size:22px; margin-bottom:8px;">3️⃣</div>
+            <div style="font-weight:600; font-size:13px; margin-bottom:4px;">Genera e imprime QR</div>
+            <div style="font-size:12px; color:var(--text2);">Un código único por trabajador, listo para usar</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏢 Configuración de empresa</div>
+        <div style="display:flex; gap:12px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label class="form-label">Nombre de la empresa contratista</label>
+            <input class="form-input" id="config-empresa" placeholder="Ej: Constructora San Pedro Ltda." oninput="saveEmpresa()">
+          </div>
+          <div style="flex:1;">
+            <label class="form-label">RUT empresa (opcional)</label>
+            <input class="form-input" id="config-rut-empresa" placeholder="Ej: 76.123.456-7" oninput="saveEmpresa()">
+          </div>
+          <div style="flex:1;">
+            <label class="form-label">Obra / Proyecto</label>
+            <input class="form-input" id="config-obra" placeholder="Ej: Edificio Torre Sur" oninput="saveEmpresa()">
+          </div>
+        </div>
+        <p class="form-hint" style="margin-top:8px;">Estos datos aparecerán en los códigos QR y reportes</p>
+      </div>
+    </div>
+
+    <!-- ═══ PÁGINA: TRABAJADORES ═══ -->
+    <div id="page-trabajadores" class="page">
+      <div class="page-header header-row">
+        <div>
+          <h1>Trabajadores</h1>
+          <p id="workers-subtitle">Gestiona el registro de personal</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">
+          ＋ Nuevo trabajador
+        </button>
+      </div>
+
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Buscar por nombre o RUT..." id="search-input" oninput="renderWorkers()">
+      </div>
+
+      <div class="card">
+        <div id="workers-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══ PÁGINA: QR ═══ -->
+    <div id="page-qr" class="page">
+      <div class="page-header">
+        <h1>Generar código QR</h1>
+        <p>Selecciona un trabajador para generar su QR personalizado</p>
+      </div>
+      <div class="qr-grid">
+        <div class="card">
+          <div class="card-title">👷 Seleccionar trabajador</div>
+          <div class="form-group">
+            <label class="form-label">Trabajador</label>
+            <select class="form-select" id="qr-select" onchange="previewQR()">
+              <option value="">— Seleccionar —</option>
+            </select>
+          </div>
+          <div id="qr-worker-info" style="display:none;">
+            <hr class="divider">
+            <div class="qr-worker-card" id="qr-worker-card"></div>
+            <hr class="divider">
+            <div style="margin-bottom:8px;">
+              <div class="qr-info-row"><span class="qr-info-label">RUT</span><span class="qr-info-value" id="qr-d-rut">—</span></div>
+              <div class="qr-info-row"><span class="qr-info-label">Nombre</span><span class="qr-info-value" id="qr-d-nombre">—</span></div>
+              <div class="qr-info-row"><span class="qr-info-label">Cargo</span><span class="qr-info-value" id="qr-d-cargo">—</span></div>
+              <div class="qr-info-row"><span class="qr-info-label">Empresa</span><span class="qr-info-value" id="qr-d-empresa">—</span></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="generateQR()">🔲 Generar QR</button>
+              <button class="btn btn-secondary" onclick="downloadQR()" id="btn-download-qr" style="display:none;">⬇️ Descargar</button>
+            </div>
+          </div>
+          <div id="qr-empty-hint" style="font-size:13px; color:var(--text3); margin-top:8px;">
+            Selecciona un trabajador para ver sus datos y generar el QR
+          </div>
+        </div>
+
+        <div class="card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+          <div id="qr-output-area" class="qr-preview-box">
+            <div style="font-size:48px; opacity:0.2;">🔲</div>
+            <div style="font-size:13px; color:var(--text3);">El QR aparecerá aquí</div>
+          </div>
+          <div id="qr-label" style="font-size:12px; color:var(--text2); margin-top:10px; text-align:center;"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title">ℹ️ Contenido del QR</div>
+        <div style="font-size:13px; color:var(--text2); line-height:1.8;">
+          Cada código QR almacena en formato JSON: <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">rut</code>, <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">nombre</code>, <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">cargo</code> y <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">empresa</code>.
+          En la <strong>Etapa 2</strong> el escáner leerá este QR desde la cámara del móvil y registrará automáticamente la hora de entrada.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PÁGINA: IMPRIMIR ═══ -->
+    <div id="page-imprimir" class="page">
+      <div class="page-header header-row">
+        <div>
+          <h1>Imprimir QR</h1>
+          <p>Genera una hoja con todos los QR listos para imprimir y recortar</p>
+        </div>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir página</button>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">⚙️ Opciones de impresión</div>
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="print-show-name" checked onchange="renderPrintSheet()"> Mostrar nombre
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="print-show-rut" checked onchange="renderPrintSheet()"> Mostrar RUT
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="print-show-cargo" checked onchange="renderPrintSheet()"> Mostrar cargo
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="print-show-empresa" onchange="renderPrintSheet()"> Mostrar empresa
+          </label>
+        </div>
+        <p class="form-hint" style="margin-top:8px;">Imprime en papel tamaño carta (Letter). Cada QR tiene el tamaño de una tarjeta de visita.</p>
+      </div>
+      <div id="print-sheet" style="background:white; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;"></div>
+    </div>
+
+    <!-- ═══ PÁGINA: ESCÁNER ═══ -->
+    <div id="page-scanner" class="page">
+      <div class="page-header header-row">
+        <div>
+          <h1>Escáner de asistencia</h1>
+          <p id="scanner-date-label"></p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <div class="scanner-status inactive" id="scanner-status-badge">
+            <div class="dot-inactive" id="status-dot"></div>
+            <span id="status-text">Cámara inactiva</span>
+          </div>
+          <button class="btn btn-secondary" onclick="exportScanCSV()">⬇️ Exportar CSV</button>
+        </div>
+      </div>
+
+      <div class="scanner-layout">
+
+    <!-- Columna izquierda: cámara + controles -->
+        <div>
+          <div class="scanner-box" id="scanner-box">
+            <video id="scanner-video" playsinline autoplay muted style="display:none;"></video>
+            <div class="scanner-overlay" id="scanner-overlay" style="display:none;">
+              <div class="scanner-frame">
+                <div class="scanner-line"></div>
+              </div>
+            </div>
+            <div class="scanner-idle" id="scanner-idle">
+              <div class="scanner-idle-icon">📱</div>
+              <div>Activa la cámara para<br>escanear códigos QR</div>
+            </div>
+          </div>
+
+          <div class="scanner-controls">
+            <button class="btn btn-primary" id="btn-start-scan" onclick="startScanner()">📷 Activar cámara</button>
+            <button class="btn btn-secondary" id="btn-stop-scan" onclick="stopScanner()" style="display:none;">⏹ Detener</button>
+          </div>
+
+          <div style="margin-top:20px;">
+            <div class="card">
+              <div class="card-title">⌨️ Registro manual</div>
+              <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Si la cámara no está disponible, ingresa el RUT directamente</p>
+              <div class="manual-register-row">
+                <div style="flex:1;">
+                  <label class="form-label">RUT del trabajador</label>
+                  <input class="form-input" id="manual-rut" placeholder="12.345.678-9" onkeydown="if(event.key==='Enter')manualScan()">
+                </div>
+                <button class="btn btn-primary" onclick="manualScan()">Registrar</button>
+              </div>
+              <p class="form-hint" style="margin-top:6px;">Presiona Enter o el botón para registrar</p>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;" class="card">
+            <div class="card-title">📊 Resumen del día</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
+              <div class="metric-card" style="background:var(--accent-bg);border-radius:var(--radius);">
+                <div class="stat-label" style="color:var(--accent-text);font-size:11px;">Marcaciones hoy</div>
+                <div class="stat-value" id="scan-count-today" style="font-size:24px;color:var(--accent);">0</div>
+              </div>
+              <div class="metric-card" style="background:var(--surface2);border-radius:var(--radius);">
+                <div class="stat-label" style="font-size:11px;">Trabajadores distintos</div>
+                <div class="stat-value" id="scan-unique-today" style="font-size:24px;">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna derecha: último escaneo + historial -->
+        <div>
+          <div id="last-scan-area" style="display:none; margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:8px;">✅ Último registro</div>
+            <div id="last-scan-card"></div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div class="card-title" style="margin-bottom:0;">📋 Registro del día</div>
+              <button class="btn btn-danger btn-sm" onclick="clearTodayLog()" id="btn-clear-log" style="display:none;">🗑️ Limpiar</button>
+            </div>
+            <div id="scan-log-container">
+              <div class="empty-state" style="padding:24px;">
+                <div class="empty-icon">📋</div>
+                <h3>Sin marcaciones aún</h3>
+                <p>Escanea un QR para registrar la asistencia</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Modal agregar/editar trabajador ── -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Nuevo trabajador</div>
+      <button class="btn btn-icon btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">RUT *</label>
+        <input class="form-input" id="f-rut" placeholder="12.345.678-9" maxlength="12">
+        <div class="form-hint">Formato: 12.345.678-9</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cargo / Función *</label>
+        <select class="form-select" id="f-cargo">
+          <option value="">— Seleccionar —</option>
+          <option>Maestro mayor</option>
+          <option>Maestro</option>
+          <option>Operario</option>
+          <option>Ayudante</option>
+          <option>Capataz</option>
+          <option>Electricista</option>
+          <option>Gasfiter</option>
+          <option>Enfierrador</option>
+          <option>Albañil</option>
+          <option>Soldador</option>
+          <option>Pintor</option>
+          <option>Supervisor</option>
+          <option>Jefe de obra</option>
+          <option value="_otro">Otro...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nombre completo *</label>
+      <input class="form-input" id="f-nombre" placeholder="Juan Antonio Pérez González">
+    </div>
+    <div class="form-group" id="cargo-otro-group" style="display:none;">
+      <label class="form-label">Especificar cargo</label>
+      <input class="form-input" id="f-cargo-otro" placeholder="Ingresa el cargo">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Jornada</label>
+      <select class="form-select" id="f-jornada">
+        <option value="Completa">Jornada completa</option>
+        <option value="Parcial">Jornada parcial</option>
+        <option value="Por turno">Por turno</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observaciones (opcional)</label>
+      <input class="form-input" id="f-obs" placeholder="Notas adicionales...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveWorker()">💾 Guardar trabajador</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// ESTADO Y PERSISTENCIA
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'asistenciapro_v1';
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { workers: [], empresa: { nombre: '', rut: '', obra: '' } };
+  } catch { return { workers: [], empresa: { nombre: '', rut: '', obra: '' } }; }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadState();
+let editingId = null;
+let qrInstance = null;
+const AVATAR_COLORS = [
+  ['#E8F5EF','#0F4A33'],['#E6F1FB','#0C447C'],['#FAEEDA','#633806'],
+  ['#FBEAF0','#4B1528'],['#EAF3DE','#173404'],['#FCEBEB','#501313']
+];
+
+// ═══════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════
+function showPage(name) {
+  if (name !== 'scanner' && scannerStream) stopScanner();
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'trabajadores') renderWorkers();
+  if (name === 'qr') { populateQRSelect(); }
+  if (name === 'imprimir') renderPrintSheet();
+  if (name === 'resumen') updateStats();
+  if (name === 'scanner') initScannerPage();
+}
+
+// ═══════════════════════════════════════
+// EMPRESA CONFIG
+// ═══════════════════════════════════════
+function saveEmpresa() {
+  state.empresa = {
+    nombre: document.getElementById('config-empresa').value,
+    rut: document.getElementById('config-rut-empresa').value,
+    obra: document.getElementById('config-obra').value
+  };
+  saveState();
+  updateStats();
+}
+
+function loadEmpresaForm() {
+  document.getElementById('config-empresa').value = state.empresa.nombre || '';
+  document.getElementById('config-rut-empresa').value = state.empresa.rut || '';
+  document.getElementById('config-obra').value = state.empresa.obra || '';
+  updateStats();
+}
+
+function updateStats() {
+  const total = state.workers.length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-qr').textContent = total;
+  document.getElementById('nav-badge-workers').textContent = total;
+  const emp = state.empresa.nombre || '—';
+  document.getElementById('stat-empresa').textContent = emp.length > 18 ? emp.substring(0, 16) + '…' : emp;
+  document.getElementById('empresa-nombre').textContent = emp;
+  const sub = total === 0 ? 'Sin trabajadores aún' : `${total} trabajador${total > 1 ? 'es' : ''} registrado${total > 1 ? 's' : ''}`;
+  document.getElementById('workers-subtitle').textContent = sub;
+}
+
+// ═══════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════
+function openModal(id = null) {
+  editingId = id;
+  document.getElementById('modal-title').textContent = id ? 'Editar trabajador' : 'Nuevo trabajador';
+  if (id) {
+    const w = state.workers.find(x => x.id === id);
+    if (w) {
+      document.getElementById('f-rut').value = w.rut;
+      document.getElementById('f-nombre').value = w.nombre;
+      document.getElementById('f-jornada').value = w.jornada;
+      document.getElementById('f-obs').value = w.obs || '';
+      const stdCargos = ['Maestro mayor','Maestro','Operario','Ayudante','Capataz','Electricista','Gasfiter','Enfierrador','Albañil','Soldador','Pintor','Supervisor','Jefe de obra'];
+      if (stdCargos.includes(w.cargo)) {
+        document.getElementById('f-cargo').value = w.cargo;
+      } else {
+        document.getElementById('f-cargo').value = '_otro';
+        document.getElementById('f-cargo-otro').value = w.cargo;
+        document.getElementById('cargo-otro-group').style.display = 'block';
+      }
+    }
+  } else {
+    document.getElementById('f-rut').value = '';
+    document.getElementById('f-nombre').value = '';
+    document.getElementById('f-cargo').value = '';
+    document.getElementById('f-jornada').value = 'Completa';
+    document.getElementById('f-obs').value = '';
+    document.getElementById('cargo-otro-group').style.display = 'none';
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-rut').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingId = null;
+}
+
+document.getElementById('f-cargo').addEventListener('change', function() {
+  document.getElementById('cargo-otro-group').style.display = this.value === '_otro' ? 'block' : 'none';
+});
+
+// Auto-format RUT
+document.getElementById('f-rut').addEventListener('input', function() {
+  let v = this.value.replace(/[^0-9kK]/g, '');
+  if (v.length > 1) {
+    const dv = v.slice(-1);
+    let num = v.slice(0, -1);
+    num = num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    this.value = num + '-' + dv.toUpperCase();
+  }
+});
+
+// ═══════════════════════════════════════
+// CRUD TRABAJADORES
+// ═══════════════════════════════════════
+function saveWorker() {
+  const rut = document.getElementById('f-rut').value.trim();
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const cargoSel = document.getElementById('f-cargo').value;
+  const cargoOtro = document.getElementById('f-cargo-otro').value.trim();
+  const cargo = cargoSel === '_otro' ? cargoOtro : cargoSel;
+  const jornada = document.getElementById('f-jornada').value;
+  const obs = document.getElementById('f-obs').value.trim();
+
+  if (!rut) { showToast('⚠️ Ingresa el RUT', 'error'); return; }
+  if (!nombre) { showToast('⚠️ Ingresa el nombre', 'error'); return; }
+  if (!cargo) { showToast('⚠️ Selecciona un cargo', 'error'); return; }
+
+  // Check duplicate RUT
+  const dup = state.workers.find(w => w.rut === rut && w.id !== editingId);
+  if (dup) { showToast('⚠️ Ya existe un trabajador con ese RUT', 'error'); return; }
+
+  if (editingId) {
+    const idx = state.workers.findIndex(w => w.id === editingId);
+    state.workers[idx] = { ...state.workers[idx], rut, nombre, cargo, jornada, obs };
+  } else {
+    const colorIdx = state.workers.length % AVATAR_COLORS.length;
+    state.workers.push({
+      id: Date.now().toString(),
+      rut, nombre, cargo, jornada, obs,
+      colorIdx,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  saveState();
+  closeModal();
+  renderWorkers();
+  updateStats();
+  populateQRSelect();
+  showToast(editingId ? '✅ Trabajador actualizado' : '✅ Trabajador agregado', 'success');
+}
+
+function deleteWorker(id) {
+  if (!confirm('¿Eliminar este trabajador? Esta acción no se puede deshacer.')) return;
+  state.workers = state.workers.filter(w => w.id !== id);
+  saveState();
+  renderWorkers();
+  updateStats();
+  populateQRSelect();
+  showToast('🗑️ Trabajador eliminado');
+}
+
+// ═══════════════════════════════════════
+// RENDER TRABAJADORES
+// ═══════════════════════════════════════
+function initials(name) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+}
+
+function renderWorkers() {
+  const search = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const filtered = state.workers.filter(w =>
+    w.nombre.toLowerCase().includes(search) || w.rut.toLowerCase().includes(search)
+  );
+  const container = document.getElementById('workers-container');
+
+  if (state.workers.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👷</div>
+        <h3>Sin trabajadores registrados</h3>
+        <p>Haz clic en "Nuevo trabajador" para comenzar</p>
+      </div>`;
+    return;
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><h3>Sin resultados</h3><p>No hay trabajadores que coincidan con la búsqueda</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="workers-table">
+      <thead>
+        <tr>
+          <th>Trabajador</th>
+          <th>Cargo</th>
+          <th>Jornada</th>
+          <th>Registrado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(w => {
+          const [bg, fg] = AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length];
+          const fecha = new Date(w.createdAt).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+          return `
+          <tr>
+            <td>
+              <div class="worker-cell">
+                <div class="worker-avatar" style="background:${bg};color:${fg}">${initials(w.nombre)}</div>
+                <div>
+                  <div class="worker-name">${w.nombre}</div>
+                  <div class="worker-rut">${w.rut}</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-green">${w.cargo}</span></td>
+            <td><span class="badge badge-gray">${w.jornada}</span></td>
+            <td style="font-size:12px; color:var(--text3); font-family:'DM Mono',monospace;">${fecha}</td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-icon btn-sm" onclick="showPage('qr'); populateQRSelect('${w.id}')" title="Ver QR">🔲</button>
+                <button class="btn btn-icon btn-sm" onclick="openModal('${w.id}')" title="Editar">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteWorker('${w.id}')" title="Eliminar">🗑️</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ═══════════════════════════════════════
+// QR GENERATOR
+// ═══════════════════════════════════════
+function populateQRSelect(selectId = null) {
+  const sel = document.getElementById('qr-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    state.workers.map(w => `<option value="${w.id}">${w.nombre} — ${w.rut}</option>`).join('');
+  if (selectId) {
+    sel.value = selectId;
+    previewQR();
+  }
+}
+
+function previewQR() {
+  const id = document.getElementById('qr-select').value;
+  const infoBox = document.getElementById('qr-worker-info');
+  const emptyHint = document.getElementById('qr-empty-hint');
+  const outputArea = document.getElementById('qr-output-area');
+
+  if (!id) {
+    infoBox.style.display = 'none';
+    emptyHint.style.display = 'block';
+    outputArea.innerHTML = '<div style="font-size:48px;opacity:0.2">🔲</div><div style="font-size:13px;color:var(--text3)">El QR aparecerá aquí</div>';
+    outputArea.classList.remove('has-qr');
+    document.getElementById('qr-label').textContent = '';
+    document.getElementById('btn-download-qr').style.display = 'none';
+    return;
+  }
+
+  const w = state.workers.find(x => x.id === id);
+  if (!w) return;
+
+  const [bg, fg] = AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length];
+  infoBox.style.display = 'block';
+  emptyHint.style.display = 'none';
+  document.getElementById('qr-worker-card').innerHTML = `
+    <div style="width:36px;height:36px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0">${initials(w.nombre)}</div>
+    <div>
+      <div style="font-weight:600;font-size:14px">${w.nombre}</div>
+      <div style="font-size:12px;color:var(--text2)">${w.cargo} · ${w.jornada}</div>
+    </div>`;
+  document.getElementById('qr-d-rut').textContent = w.rut;
+  document.getElementById('qr-d-nombre').textContent = w.nombre;
+  document.getElementById('qr-d-cargo').textContent = w.cargo;
+  document.getElementById('qr-d-empresa').textContent = state.empresa.nombre || '(no configurada)';
+
+  // Reset QR area
+  outputArea.classList.remove('has-qr');
+  outputArea.innerHTML = '<div style="font-size:48px;opacity:0.2">🔲</div><div style="font-size:13px;color:var(--text3)">Haz clic en "Generar QR"</div>';
+  document.getElementById('qr-label').textContent = '';
+  document.getElementById('btn-download-qr').style.display = 'none';
+  qrInstance = null;
+}
+
+function generateQR() {
+  const id = document.getElementById('qr-select').value;
+  if (!id) { showToast('⚠️ Selecciona un trabajador', 'error'); return; }
+  const w = state.workers.find(x => x.id === id);
+  const outputArea = document.getElementById('qr-output-area');
+
+  const payload = JSON.stringify({
+    rut: w.rut,
+    nombre: w.nombre,
+    cargo: w.cargo,
+    jornada: w.jornada,
+    empresa: state.empresa.nombre || '',
+    obra: state.empresa.obra || '',
+    id: w.id
+  });
+
+  outputArea.innerHTML = '<div id="qr-canvas-wrap"></div>';
+  outputArea.classList.add('has-qr');
+
+  qrInstance = new QRCode(document.getElementById('qr-canvas-wrap'), {
+    text: payload,
+    width: 200,
+    height: 200,
+    colorDark: '#1A1916',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  document.getElementById('qr-label').innerHTML = `<strong>${w.nombre}</strong><br><span style="font-family:'DM Mono',monospace;font-size:11px">${w.rut}</span>`;
+  document.getElementById('btn-download-qr').style.display = 'inline-flex';
+  showToast('✅ QR generado correctamente', 'success');
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qr-canvas-wrap canvas');
+  if (!canvas) { showToast('⚠️ Genera el QR primero', 'error'); return; }
+  const id = document.getElementById('qr-select').value;
+  const w = state.workers.find(x => x.id === id);
+  const link = document.createElement('a');
+  link.download = `QR_${w.rut.replace(/\./g,'').replace('-','_')}_${w.nombre.split(' ')[0]}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('⬇️ QR descargado');
+}
+
+// ═══════════════════════════════════════
+// HOJA DE IMPRESIÓN
+// ═══════════════════════════════════════
+function renderPrintSheet() {
+  const sheet = document.getElementById('print-sheet');
+  if (state.workers.length === 0) {
+    sheet.innerHTML = '<div class="empty-state"><div class="empty-icon">🖨️</div><h3>Sin trabajadores</h3><p>Agrega trabajadores primero</p></div>';
+    return;
+  }
+
+  const showName = document.getElementById('print-show-name').checked;
+  const showRut = document.getElementById('print-show-rut').checked;
+  const showCargo = document.getElementById('print-show-cargo').checked;
+  const showEmp = document.getElementById('print-show-empresa').checked;
+
+  sheet.innerHTML = '<div class="print-sheet" id="print-grid"></div>';
+  const grid = document.getElementById('print-grid');
+
+  state.workers.forEach((w, i) => {
+    const div = document.createElement('div');
+    div.className = 'print-card';
+    div.innerHTML = `
+      <div id="pqr-${i}" style="display:inline-block"></div>
+      ${showName ? `<div class="print-name">${w.nombre}</div>` : ''}
+      ${showRut ? `<div class="print-rut">${w.rut}</div>` : ''}
+      ${showCargo ? `<div class="print-role">${w.cargo}</div>` : ''}
+      ${showEmp && state.empresa.nombre ? `<div class="print-role">${state.empresa.nombre}</div>` : ''}
+    `;
+    grid.appendChild(div);
+
+    const payload = JSON.stringify({
+      rut: w.rut, nombre: w.nombre, cargo: w.cargo,
+      empresa: state.empresa.nombre || '', id: w.id
+    });
+
+    setTimeout(() => {
+      new QRCode(document.getElementById(`pqr-${i}`), {
+        text: payload, width: 100, height: 100,
+        colorDark: '#000', colorLight: '#fff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }, i * 30);
+  });
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════
+// ESCÁNER QR — ETAPA 2
+// ═══════════════════════════════════════
+const SCAN_KEY = 'asistenciapro_scans_v1';
+let scanLog = loadScans();
+let scannerStream = null;
+let scannerInterval = null;
+let lastScannedId = null;
+let lastScannedTime = 0;
+
+function loadScans() {
+  try {
+    const raw = localStorage.getItem(SCAN_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveScans() {
+  localStorage.setItem(SCAN_KEY, JSON.stringify(scanLog));
+}
+
+function todayStr() {
+  return new Date().toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function timeStr() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+// ── Iniciar cámara ──
+async function startScanner() {
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
+    scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream;
+    video.style.display = 'block';
+    document.getElementById('scanner-idle').style.display = 'none';
+    document.getElementById('scanner-overlay').style.display = 'flex';
+    document.getElementById('btn-start-scan').style.display = 'none';
+    document.getElementById('btn-stop-scan').style.display = 'inline-flex';
+    document.getElementById('scanner-status-badge').className = 'scanner-status active';
+    document.getElementById('status-dot').className = 'pulse';
+    document.getElementById('status-text').textContent = 'Cámara activa';
+
+    // Cargar jsQR dinámicamente
+    if (!window.jsQR) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js');
+    }
+    startScanLoop(video);
+    showToast('📷 Cámara activada — apunta al QR', 'success');
+  } catch (err) {
+    let msg = '⚠️ No se pudo acceder a la cámara.';
+    if (err.name === 'NotAllowedError') msg = '⚠️ Permiso de cámara denegado. Debes permitir el acceso.';
+    else if (err.name === 'NotFoundError') msg = '⚠️ No se encontró cámara en este dispositivo.';
+    showToast(msg, 'error');
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// ── Loop de lectura ──
+function startScanLoop(video) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  scannerInterval = setInterval(() => {
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code) {
+      handleQRCode(code.data);
+    }
+  }, 300);
+}
+
+// ── Detener cámara ──
+function stopScanner() {
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  if (scannerInterval) { clearInterval(scannerInterval); scannerInterval = null; }
+  const video = document.getElementById('scanner-video');
+  video.style.display = 'none';
+  video.srcObject = null;
+  document.getElementById('scanner-idle').style.display = 'flex';
+  document.getElementById('scanner-overlay').style.display = 'none';
+  document.getElementById('btn-start-scan').style.display = 'inline-flex';
+  document.getElementById('btn-stop-scan').style.display = 'none';
+  document.getElementById('scanner-status-badge').className = 'scanner-status inactive';
+  document.getElementById('status-dot').className = 'dot-inactive';
+  document.getElementById('status-text').textContent = 'Cámara inactiva';
+}
+
+// ── Procesar QR ──
+function handleQRCode(raw) {
+  // Evitar doble escaneo del mismo QR en menos de 3 segundos
+  const now = Date.now();
+  if (raw === lastScannedId && now - lastScannedTime < 3000) return;
+  lastScannedId = raw;
+  lastScannedTime = now;
+
+  let data;
+  try { data = JSON.parse(raw); } catch {
+    showToast('⚠️ QR no válido — no es de este sistema', 'error'); return;
+  }
+  if (!data.rut || !data.nombre) {
+    showToast('⚠️ QR incompleto', 'error'); return;
+  }
+  registerScan(data);
+}
+
+// ── Registro manual por RUT ──
+function manualScan() {
+  const rut = document.getElementById('manual-rut').value.trim();
+  if (!rut) { showToast('⚠️ Ingresa un RUT', 'error'); return; }
+  const w = state.workers.find(x => x.rut === rut);
+  if (!w) { showToast('⚠️ RUT no encontrado en el sistema', 'error'); return; }
+  registerScan({ rut: w.rut, nombre: w.nombre, cargo: w.cargo, jornada: w.jornada, empresa: state.empresa.nombre || '', id: w.id });
+  document.getElementById('manual-rut').value = '';
+}
+
+// ── Guardar marcación ──
+function registerScan(data) {
+  const entry = {
+    id: Date.now().toString(),
+    fecha: todayKey(),
+    hora: timeStr(),
+    rut: data.rut,
+    nombre: data.nombre,
+    cargo: data.cargo || '',
+    jornada: data.jornada || '',
+    empresa: data.empresa || state.empresa.nombre || '',
+    obra: data.obra || state.empresa.obra || '',
+    workerId: data.id || ''
+  };
+  scanLog.unshift(entry);
+  saveScans();
+  showLastScan(entry);
+  renderScanLog();
+  updateScanStats();
+
+  // Vibración en móvil si está disponible
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  showToast(`✅ ${data.nombre.split(' ')[0]} — ${entry.hora}`, 'success');
+}
+
+// ── Mostrar último escaneo ──
+function showLastScan(entry) {
+  const area = document.getElementById('last-scan-area');
+  const w = state.workers.find(x => x.rut === entry.rut);
+  const [bg, fg] = w ? AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
+  area.style.display = 'block';
+  document.getElementById('last-scan-card').innerHTML = `
+    <div class="scan-result-card">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div style="width:44px;height:44px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0">${initials(entry.nombre)}</div>
+        <div style="flex:1;">
+          <div class="scan-result-name">${entry.nombre}</div>
+          <div class="scan-result-rut">${entry.rut}</div>
+          <div class="scan-result-meta">
+            <span>🔨 ${entry.cargo}</span>
+            <span>🕐 ${entry.hora}</span>
+            ${entry.obra ? `<span>🏗️ ${entry.obra}</span>` : ''}
+          </div>
+        </div>
+        <div style="font-size:28px;">✅</div>
+      </div>
+    </div>`;
+}
+
+// ── Render log del día ──
+function renderScanLog() {
+  const today = todayKey();
+  const todayScans = scanLog.filter(s => s.fecha === today);
+  const container = document.getElementById('scan-log-container');
+  const btnClear = document.getElementById('btn-clear-log');
+
+  if (todayScans.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📋</div><h3>Sin marcaciones aún</h3><p>Escanea un QR para registrar la asistencia</p></div>`;
+    btnClear.style.display = 'none';
+    return;
+  }
+
+  btnClear.style.display = 'inline-flex';
+  container.innerHTML = `
+    <div style="max-height:380px; overflow-y:auto;">
+      <table class="log-table">
+        <thead><tr>
+          <th>Trabajador</th>
+          <th>Cargo</th>
+          <th>Hora</th>
+        </tr></thead>
+        <tbody>
+          ${todayScans.map(s => {
+            const w = state.workers.find(x => x.rut === s.rut);
+            const [bg, fg] = w ? AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
+            return `<tr>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${initials(s.nombre)}</div>
+                  <div>
+                    <div style="font-weight:500;font-size:13px;">${s.nombre}</div>
+                    <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;">${s.rut}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge badge-gray">${s.cargo}</span></td>
+              <td><span class="time-chip">${s.hora}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function updateScanStats() {
+  const today = todayKey();
+  const todayScans = scanLog.filter(s => s.fecha === today);
+  document.getElementById('scan-count-today').textContent = todayScans.length;
+  const unique = new Set(todayScans.map(s => s.rut)).size;
+  document.getElementById('scan-unique-today').textContent = unique;
+}
+
+function clearTodayLog() {
+  if (!confirm('¿Eliminar todas las marcaciones de hoy?')) return;
+  const today = todayKey();
+  scanLog = scanLog.filter(s => s.fecha !== today);
+  saveScans();
+  renderScanLog();
+  updateScanStats();
+  document.getElementById('last-scan-area').style.display = 'none';
+  showToast('🗑️ Registro del día eliminado');
+}
+
+// ── Exportar CSV ──
+function exportScanCSV() {
+  const today = todayKey();
+  const todayScans = scanLog.filter(s => s.fecha === today);
+  if (todayScans.length === 0) { showToast('⚠️ Sin marcaciones para exportar', 'error'); return; }
+
+  const empresa = state.empresa.nombre || '';
+  const obra = state.empresa.obra || '';
+  const header = 'Fecha,Hora,RUT,Nombre,Cargo,Jornada,Empresa,Obra\n';
+  const rows = todayScans.map(s =>
+    `${s.fecha},${s.hora},"${s.rut}","${s.nombre}","${s.cargo}","${s.jornada}","${empresa}","${obra}"`
+  ).join('\n');
+
+  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `Asistencia_${today}.csv`;
+  link.click();
+  showToast('⬇️ CSV exportado correctamente', 'success');
+}
+
+// ── Init scanner page ──
+function initScannerPage() {
+  document.getElementById('scanner-date-label').textContent = todayStr().charAt(0).toUpperCase() + todayStr().slice(1);
+  renderScanLog();
+  updateScanStats();
+}
+
+// Auto-format RUT en escáner manual
+document.getElementById('manual-rut').addEventListener('input', function() {
+  let v = this.value.replace(/[^0-9kK]/g, '');
+  if (v.length > 1) {
+    const dv = v.slice(-1);
+    let num = v.slice(0, -1);
+    num = num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    this.value = num + '-' + dv.toUpperCase();
+  }
+});
+
+// ── Fin Etapa 2 ──
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+loadEmpresaForm();
+renderWorkers();
+updateStats();
+</script>
+</body>
+</html>
