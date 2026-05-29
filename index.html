@@ -11077,8 +11077,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       </div>
 
       <div class="scanner-layout">
-
-    <!-- Columna izquierda: cámara + controles -->
+        <!-- Columna izquierda: cámara + controles -->
         <div>
           <div class="scanner-box" id="scanner-box">
             <video id="scanner-video" playsinline autoplay muted style="display:none;"></video>
@@ -11098,29 +11097,26 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
             <button class="btn btn-secondary" id="btn-stop-scan" onclick="stopScanner()" style="display:none;">⏹ Detener</button>
           </div>
 
-          <div style="margin-top:20px;">
-            <div class="card">
-              <div class="card-title">⌨️ Registro manual</div>
-              <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Si la cámara no está disponible, ingresa el RUT directamente</p>
-              <div class="manual-register-row">
-                <div style="flex:1;">
-                  <label class="form-label">RUT del trabajador</label>
-                  <input class="form-input" id="manual-rut" placeholder="12.345.678-9" onkeydown="if(event.key==='Enter')manualScan()">
-                </div>
-                <button class="btn btn-primary" onclick="manualScan()">Registrar</button>
+          <div style="margin-top:16px;" class="card">
+            <div class="card-title">⌨️ Registro manual</div>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">Escribe el RUT si la cámara no funciona</p>
+            <div class="manual-register-row">
+              <div style="flex:1;">
+                <label class="form-label">RUT del trabajador</label>
+                <input class="form-input" id="manual-rut" placeholder="12.345.678-9" onkeydown="if(event.key==='Enter')manualScan()">
               </div>
-              <p class="form-hint" style="margin-top:6px;">Presiona Enter o el botón para registrar</p>
+              <button class="btn btn-primary" onclick="manualScan()">Registrar</button>
             </div>
           </div>
 
           <div style="margin-top:16px;" class="card">
             <div class="card-title">📊 Resumen del día</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
-              <div class="metric-card" style="background:var(--accent-bg);border-radius:var(--radius);">
+              <div style="background:var(--accent-bg);border-radius:var(--radius);padding:12px;text-align:center;">
                 <div class="stat-label" style="color:var(--accent-text);font-size:11px;">Marcaciones hoy</div>
                 <div class="stat-value" id="scan-count-today" style="font-size:24px;color:var(--accent);">0</div>
               </div>
-              <div class="metric-card" style="background:var(--surface2);border-radius:var(--radius);">
+              <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;text-align:center;">
                 <div class="stat-label" style="font-size:11px;">Trabajadores distintos</div>
                 <div class="stat-value" id="scan-unique-today" style="font-size:24px;">0</div>
               </div>
@@ -11134,7 +11130,6 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
             <div class="card-title" style="margin-bottom:8px;">✅ Último registro</div>
             <div id="last-scan-card"></div>
           </div>
-
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
               <div class="card-title" style="margin-bottom:0;">📋 Registro del día</div>
@@ -11153,6 +11148,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     </div>
 
   </main>
+
 </div>
 
 <!-- ── Modal agregar/editar trabajador ── -->
@@ -11620,42 +11616,20 @@ let scannerStream = null;
 let scannerInterval = null;
 let lastScannedId = null;
 let lastScannedTime = 0;
+let barcodeDetector = null;
 
 function loadScans() {
-  try {
-    const raw = localStorage.getItem(SCAN_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  try { const r = localStorage.getItem(SCAN_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
 }
-
-function saveScans() {
-  localStorage.setItem(SCAN_KEY, JSON.stringify(scanLog));
-}
-
-function todayStr() {
-  return new Date().toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-}
-
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function timeStr() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-}
+function saveScans() { localStorage.setItem(SCAN_KEY, JSON.stringify(scanLog)); }
+function todayStr() { return new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+function todayKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function timeStr() { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`; }
 
 // ── Iniciar cámara ──
 async function startScanner() {
   try {
-    const constraints = {
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    };
+    const constraints = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } };
     scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
     const video = document.getElementById('scanner-video');
     video.srcObject = scannerStream;
@@ -11667,30 +11641,37 @@ async function startScanner() {
     document.getElementById('scanner-status-badge').className = 'scanner-status active';
     document.getElementById('status-dot').className = 'pulse';
     document.getElementById('status-text').textContent = 'Cámara activa';
-
-    // Usar lector QR integrado — sin dependencias externas
-    startScanLoop(video);
     showToast('📷 Cámara activa — apunta al QR', 'success');
+
+    // Intentar BarcodeDetector (API nativa del sistema operativo)
+    if ('BarcodeDetector' in window) {
+      barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+      startNativeScanLoop(video);
+    } else {
+      // Fallback: jsQR embebido
+      startJsQRLoop(video);
+    }
   } catch (err) {
     let msg = '⚠️ No se pudo acceder a la cámara.';
-    if (err.name === 'NotAllowedError') msg = '⚠️ Permiso de cámara denegado. Debes permitir el acceso.';
-    else if (err.name === 'NotFoundError') msg = '⚠️ No se encontró cámara en este dispositivo.';
+    if (err.name === 'NotAllowedError') msg = '⚠️ Permiso denegado. Permite la cámara en ajustes.';
+    else if (err.name === 'NotFoundError') msg = '⚠️ No se encontró cámara.';
     showToast(msg, 'error');
   }
 }
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
+// ── Loop con BarcodeDetector (nativo Android/Chrome) ──
+function startNativeScanLoop(video) {
+  scannerInterval = setInterval(async () => {
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    try {
+      const codes = await barcodeDetector.detect(video);
+      if (codes.length > 0) handleQRCode(codes[0].rawValue);
+    } catch(e) {}
+  }, 300);
 }
 
-// ── Loop de lectura ──
-function startScanLoop(video) {
+// ── Loop con jsQR embebido (fallback) ──
+function startJsQRLoop(video) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   scannerInterval = setInterval(() => {
@@ -11700,9 +11681,7 @@ function startScanLoop(video) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-    if (code) {
-      handleQRCode(code.data);
-    }
+    if (code) handleQRCode(code.data);
   }, 300);
 }
 
@@ -11711,8 +11690,7 @@ function stopScanner() {
   if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
   if (scannerInterval) { clearInterval(scannerInterval); scannerInterval = null; }
   const video = document.getElementById('scanner-video');
-  video.style.display = 'none';
-  video.srcObject = null;
+  video.style.display = 'none'; video.srcObject = null;
   document.getElementById('scanner-idle').style.display = 'flex';
   document.getElementById('scanner-overlay').style.display = 'none';
   document.getElementById('btn-start-scan').style.display = 'inline-flex';
@@ -11724,19 +11702,12 @@ function stopScanner() {
 
 // ── Procesar QR ──
 function handleQRCode(raw) {
-  // Evitar doble escaneo del mismo QR en menos de 3 segundos
   const now = Date.now();
   if (raw === lastScannedId && now - lastScannedTime < 3000) return;
-  lastScannedId = raw;
-  lastScannedTime = now;
-
+  lastScannedId = raw; lastScannedTime = now;
   let data;
-  try { data = JSON.parse(raw); } catch {
-    showToast('⚠️ QR no válido — no es de este sistema', 'error'); return;
-  }
-  if (!data.rut || !data.nombre) {
-    showToast('⚠️ QR incompleto', 'error'); return;
-  }
+  try { data = JSON.parse(raw); } catch { showToast('⚠️ QR no válido', 'error'); return; }
+  if (!data.rut || !data.nombre) { showToast('⚠️ QR incompleto', 'error'); return; }
   registerScan(data);
 }
 
@@ -11745,33 +11716,20 @@ function manualScan() {
   const rut = document.getElementById('manual-rut').value.trim();
   if (!rut) { showToast('⚠️ Ingresa un RUT', 'error'); return; }
   const w = state.workers.find(x => x.rut === rut);
-  if (!w) { showToast('⚠️ RUT no encontrado en el sistema', 'error'); return; }
+  if (!w) { showToast('⚠️ RUT no encontrado', 'error'); return; }
   registerScan({ rut: w.rut, nombre: w.nombre, cargo: w.cargo, jornada: w.jornada, empresa: state.empresa.nombre || '', id: w.id });
   document.getElementById('manual-rut').value = '';
 }
 
 // ── Guardar marcación ──
 function registerScan(data) {
-  const entry = {
-    id: Date.now().toString(),
-    fecha: todayKey(),
-    hora: timeStr(),
-    rut: data.rut,
-    nombre: data.nombre,
-    cargo: data.cargo || '',
-    jornada: data.jornada || '',
-    empresa: data.empresa || state.empresa.nombre || '',
-    obra: data.obra || state.empresa.obra || '',
-    workerId: data.id || ''
-  };
+  const entry = { id: Date.now().toString(), fecha: todayKey(), hora: timeStr(), rut: data.rut, nombre: data.nombre, cargo: data.cargo||'', jornada: data.jornada||'', empresa: data.empresa||state.empresa.nombre||'', obra: data.obra||state.empresa.obra||'', workerId: data.id||'' };
   scanLog.unshift(entry);
   saveScans();
   showLastScan(entry);
   renderScanLog();
   updateScanStats();
-
-  // Vibración en móvil si está disponible
-  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  if (navigator.vibrate) navigator.vibrate([100,50,100]);
   showToast(`✅ ${data.nombre.split(' ')[0]} — ${entry.hora}`, 'success');
 }
 
@@ -11779,127 +11737,77 @@ function registerScan(data) {
 function showLastScan(entry) {
   const area = document.getElementById('last-scan-area');
   const w = state.workers.find(x => x.rut === entry.rut);
-  const [bg, fg] = w ? AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
+  const [bg,fg] = w ? AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
   area.style.display = 'block';
   document.getElementById('last-scan-card').innerHTML = `
     <div class="scan-result-card">
-      <div style="display:flex; gap:12px; align-items:center;">
+      <div style="display:flex;gap:12px;align-items:center;">
         <div style="width:44px;height:44px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;flex-shrink:0">${initials(entry.nombre)}</div>
         <div style="flex:1;">
           <div class="scan-result-name">${entry.nombre}</div>
           <div class="scan-result-rut">${entry.rut}</div>
-          <div class="scan-result-meta">
-            <span>🔨 ${entry.cargo}</span>
-            <span>🕐 ${entry.hora}</span>
-            ${entry.obra ? `<span>🏗️ ${entry.obra}</span>` : ''}
-          </div>
+          <div class="scan-result-meta"><span>🔨 ${entry.cargo}</span><span>🕐 ${entry.hora}</span></div>
         </div>
         <div style="font-size:28px;">✅</div>
       </div>
     </div>`;
 }
 
-// ── Render log del día ──
+// ── Render log ──
 function renderScanLog() {
   const today = todayKey();
   const todayScans = scanLog.filter(s => s.fecha === today);
   const container = document.getElementById('scan-log-container');
   const btnClear = document.getElementById('btn-clear-log');
-
   if (todayScans.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📋</div><h3>Sin marcaciones aún</h3><p>Escanea un QR para registrar la asistencia</p></div>`;
-    btnClear.style.display = 'none';
-    return;
+    container.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="empty-icon">📋</div><h3>Sin marcaciones aún</h3><p>Escanea un QR para registrar</p></div>`;
+    btnClear.style.display = 'none'; return;
   }
-
   btnClear.style.display = 'inline-flex';
-  container.innerHTML = `
-    <div style="max-height:380px; overflow-y:auto;">
-      <table class="log-table">
-        <thead><tr>
-          <th>Trabajador</th>
-          <th>Cargo</th>
-          <th>Hora</th>
-        </tr></thead>
-        <tbody>
-          ${todayScans.map(s => {
-            const w = state.workers.find(x => x.rut === s.rut);
-            const [bg, fg] = w ? AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
-            return `<tr>
-              <td>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="width:28px;height:28px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${initials(s.nombre)}</div>
-                  <div>
-                    <div style="font-weight:500;font-size:13px;">${s.nombre}</div>
-                    <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;">${s.rut}</div>
-                  </div>
-                </div>
-              </td>
-              <td><span class="badge badge-gray">${s.cargo}</span></td>
-              <td><span class="time-chip">${s.hora}</span></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  container.innerHTML = `<div style="max-height:380px;overflow-y:auto;"><table class="log-table"><thead><tr><th>Trabajador</th><th>Cargo</th><th>Hora</th></tr></thead><tbody>
+    ${todayScans.map(s => {
+      const w = state.workers.find(x => x.rut === s.rut);
+      const [bg,fg] = w ? AVATAR_COLORS[w.colorIdx%AVATAR_COLORS.length] : ['#E8F5EF','#0F4A33'];
+      return `<tr><td><div style="display:flex;align-items:center;gap:8px;"><div style="width:28px;height:28px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">${initials(s.nombre)}</div><div><div style="font-weight:500">${s.nombre}</div><div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${s.rut}</div></div></div></td><td><span class="badge badge-gray">${s.cargo}</span></td><td><span class="time-chip">${s.hora}</span></td></tr>`;
+    }).join('')}
+  </tbody></table></div>`;
 }
 
 function updateScanStats() {
   const today = todayKey();
   const todayScans = scanLog.filter(s => s.fecha === today);
   document.getElementById('scan-count-today').textContent = todayScans.length;
-  const unique = new Set(todayScans.map(s => s.rut)).size;
-  document.getElementById('scan-unique-today').textContent = unique;
+  document.getElementById('scan-unique-today').textContent = new Set(todayScans.map(s => s.rut)).size;
 }
 
 function clearTodayLog() {
   if (!confirm('¿Eliminar todas las marcaciones de hoy?')) return;
-  const today = todayKey();
-  scanLog = scanLog.filter(s => s.fecha !== today);
-  saveScans();
-  renderScanLog();
-  updateScanStats();
+  scanLog = scanLog.filter(s => s.fecha !== todayKey());
+  saveScans(); renderScanLog(); updateScanStats();
   document.getElementById('last-scan-area').style.display = 'none';
   showToast('🗑️ Registro del día eliminado');
 }
 
-// ── Exportar CSV ──
 function exportScanCSV() {
   const today = todayKey();
   const todayScans = scanLog.filter(s => s.fecha === today);
-  if (todayScans.length === 0) { showToast('⚠️ Sin marcaciones para exportar', 'error'); return; }
-
-  const empresa = state.empresa.nombre || '';
-  const obra = state.empresa.obra || '';
+  if (!todayScans.length) { showToast('⚠️ Sin marcaciones para exportar', 'error'); return; }
   const header = 'Fecha,Hora,RUT,Nombre,Cargo,Jornada,Empresa,Obra\n';
-  const rows = todayScans.map(s =>
-    `${s.fecha},${s.hora},"${s.rut}","${s.nombre}","${s.cargo}","${s.jornada}","${empresa}","${obra}"`
-  ).join('\n');
-
-  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `Asistencia_${today}.csv`;
-  link.click();
-  showToast('⬇️ CSV exportado correctamente', 'success');
+  const rows = todayScans.map(s => `${s.fecha},${s.hora},"${s.rut}","${s.nombre}","${s.cargo}","${s.jornada}","${s.empresa}","${s.obra}"`).join('\n');
+  const blob = new Blob(['\uFEFF'+header+rows], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `Asistencia_${today}.csv`; a.click();
+  showToast('⬇️ CSV exportado', 'success');
 }
 
-// ── Init scanner page ──
 function initScannerPage() {
   document.getElementById('scanner-date-label').textContent = todayStr().charAt(0).toUpperCase() + todayStr().slice(1);
-  renderScanLog();
-  updateScanStats();
+  renderScanLog(); updateScanStats();
 }
 
-// Auto-format RUT en escáner manual
 document.getElementById('manual-rut').addEventListener('input', function() {
   let v = this.value.replace(/[^0-9kK]/g, '');
-  if (v.length > 1) {
-    const dv = v.slice(-1);
-    let num = v.slice(0, -1);
-    num = num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    this.value = num + '-' + dv.toUpperCase();
-  }
+  if (v.length > 1) { const dv=v.slice(-1); let num=v.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); this.value=num+'-'+dv.toUpperCase(); }
 });
 
 // ── Fin Etapa 2 ──
