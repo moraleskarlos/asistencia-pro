@@ -168,6 +168,147 @@
     return { toSVG };
   })();
   </script>
+  <script>
+  // ── Lector QR integrado — sin dependencias externas ──
+  // Decodifica QR codes desde ImageData del canvas
+  var QRReader = (function(){
+    // Binarizar imagen
+    function binarize(data, w, h) {
+      var gray = new Uint8Array(w*h);
+      for(var i=0;i<w*h;i++) gray[i] = (data[i*4]*77 + data[i*4+1]*150 + data[i*4+2]*29) >> 8;
+      // Umbral adaptativo por bloques
+      var blk = 8, out = new Uint8Array(w*h);
+      for(var y=0;y<h;y++) for(var x=0;x<w;x++){
+        var x0=Math.max(0,x-blk),x1=Math.min(w-1,x+blk);
+        var y0=Math.max(0,y-blk),y1=Math.min(h-1,y+blk);
+        var sum=0,cnt=0;
+        for(var yy=y0;yy<=y1;yy++) for(var xx=x0;xx<=x1;xx++){sum+=gray[yy*w+xx];cnt++;}
+        out[y*w+x] = gray[y*w+x] < (sum/cnt - 5) ? 1 : 0;
+      }
+      return out;
+    }
+
+    // Detectar finder patterns (cuadrados 7x7)
+    function findFinders(bin, w, h) {
+      var finders = [];
+      for(var y=3;y<h-3;y+=2) for(var x=3;x<w-3;x+=2){
+        if(!bin[y*w+x]) continue;
+        // Chequeo rápido del patrón 1:1:3:1:1 horizontal
+        var ok=true;
+        for(var d=-3;d<=3;d++){
+          var v = bin[y*w+(x+d)];
+          var expected = (d===-3||d===3||d===0) ? 1 : (d===-2||d===2) ? 0 : 1;
+          if(v!==expected){ok=false;break;}
+        }
+        if(ok) finders.push({x,y});
+      }
+      return finders;
+    }
+
+    // Leer módulos del QR
+    function readModules(bin, w, h, finder) {
+      if(!finder) return null;
+      var cx=finder.x, cy=finder.y;
+      // Estimar tamaño del módulo
+      var mw=1;
+      for(var i=1;i<w-cx;i++) if(!bin[cy*w+(cx+i)]){mw=i/3.5;break;}
+      if(mw<1) mw=1;
+      var size=21; // mínimo versión 1
+      for(var v=1;v<=10;v++) if(Math.abs((v*4+17)*mw - Math.min(w,h)*0.85)<(v*4+17)*mw*0.3) size=v*4+17;
+      var startX=cx-3.5*mw, startY=cy-3.5*mw;
+      var mat=[];
+      for(var r=0;r<size;r++){
+        mat[r]=[];
+        for(var c=0;c<size;c++){
+          var px=Math.round(startX+c*mw+mw/2);
+          var py=Math.round(startY+r*mw+mw/2);
+          if(px<0||px>=w||py<0||py>=h){mat[r][c]=0;continue;}
+          mat[r][c]=bin[py*w+px];
+        }
+      }
+      return {mat,size};
+    }
+
+    // Extraer datos del QR (byte mode, sin corrección de errores compleja)
+    function extractData(mat, size) {
+      // Desenmascara con máscara 0: (row+col)%2===0
+      var masks=[(r,c)=>(r+c)%2===0,(r,c)=>r%2===0,(r,c)=>c%3===0,(r,c)=>(r+c)%3===0,
+                 (r,c)=>(Math.floor(r/2)+Math.floor(c/3))%2===0,(r,c)=>(r*c)%2+(r*c)%3===0,
+                 (r,c)=>((r*c)%2+(r*c)%3)%2===0,(r,c)=>((r+c)%2+(r*c)%3)%2===0];
+
+      // Función de módulos de datos (evita zonas funcionales)
+      function isFunctional(r,c){
+        // finder + separadores
+        if((r<9&&c<9)||(r<9&&c>=size-8)||(r>=size-8&&c<9)) return true;
+        // timing
+        if(r===6||c===6) return true;
+        // dark module
+        if(r===size-8&&c===8) return true;
+        // format info
+        if(r<9&&c===8) return true; if(r===8&&c<9) return true;
+        if(r===8&&c>=size-8) return true; if(r>=size-8&&c===8) return true;
+        return false;
+      }
+
+      // Intentar cada máscara
+      for(var mi=0;mi<8;mi++){
+        var bits=[];
+        var col=size-1, going=-1;
+        while(col>0){
+          if(col===6) col--;
+          for(var row=(going===-1?size-1:0); going===-1?row>=0:row<size; row+=going){
+            for(var ci=0;ci<2;ci++){
+              var cc=col-ci, rr=row;
+              if(isFunctional(rr,cc)) continue;
+              var bit=mat[rr][cc];
+              if(masks[mi](rr,cc)) bit^=1;
+              bits.push(bit);
+            }
+          }
+          going=-going; col-=2;
+        }
+
+        // Decodificar
+        try {
+          var idx=0;
+          function readBits(n){var v=0;for(var i=0;i<n;i++) v=(v<<1)|(bits[idx++]||0);return v;}
+          var mode=readBits(4);
+          if(mode===4){ // byte mode
+            var len=readBits(8);
+            if(len>0 && len<500){
+              var bytes=[];
+              for(var i=0;i<len;i++) bytes.push(readBits(8));
+              var str=bytes.map(b=>String.fromCharCode(b)).join('');
+              // Verificar si parece JSON válido con nuestros campos
+              if(str.includes('"rut"') && str.includes('"nombre"')){
+                return str;
+              }
+            }
+          }
+        } catch(e){}
+      }
+      return null;
+    }
+
+    function decode(imageData) {
+      var w=imageData.width, h=imageData.height;
+      var bin=binarize(imageData.data, w, h);
+      var finders=findFinders(bin, w, h);
+      if(!finders.length) return null;
+      // Ordenar por proximidad al centro
+      finders.sort((a,b)=>Math.abs(a.x-w/2)+Math.abs(a.y-h/2)-Math.abs(b.x-w/2)-Math.abs(b.y-h/2));
+      for(var fi=0;fi<Math.min(finders.length,5);fi++){
+        var qr=readModules(bin, w, h, finders[fi]);
+        if(!qr) continue;
+        var data=extractData(qr.mat, qr.size);
+        if(data) return {data};
+      }
+      return null;
+    }
+
+    return {decode};
+  })();
+  </script>
   <style>
     :root {
       --bg: #F5F3EE;
@@ -1425,22 +1566,7 @@ async function startScanner() {
     document.getElementById('status-dot').className = 'pulse';
     document.getElementById('status-text').textContent = 'Cámara activa';
 
-    // Cargar jsQR con múltiples fuentes de respaldo
-    if (!window.jsQR) {
-      const cdns = [
-        'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
-        'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js'
-      ];
-      let loaded = false;
-      for (const cdn of cdns) {
-        try { await loadScript(cdn); loaded = true; break; } catch(e) {}
-      }
-      if (!loaded) {
-        showToast('⚠️ Sin conexión. Usa registro manual.', 'error');
-        stopScanner(); return;
-      }
-    }
+    // Usar lector QR integrado — sin dependencias externas
     startScanLoop(video);
     showToast('📷 Cámara activa — apunta al QR', 'success');
   } catch (err) {
@@ -1471,11 +1597,11 @@ function startScanLoop(video) {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    const code = QRReader.decode(imageData);
     if (code) {
       handleQRCode(code.data);
     }
-  }, 300);
+  }, 400);
 }
 
 // ── Detener cámara ──
