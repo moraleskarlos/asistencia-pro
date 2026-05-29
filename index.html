@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AsistenciaPro — Control de Trabajadores</title>
+  <title>AsistenciaPro — Control de Asistencia</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>
@@ -10847,7 +10847,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         <div class="logo-icon">🏗️</div>
         <div>
           <div class="logo-text">AsistenciaPro</div>
-          <div class="logo-sub">v2.0 — Etapa 2</div>
+          <div class="logo-sub">v3.0 — QR URL</div>
         </div>
       </div>
     </div>
@@ -11022,10 +11022,23 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       </div>
 
       <div class="card" style="margin-top:20px;">
-        <div class="card-title">ℹ️ Contenido del QR</div>
-        <div style="font-size:13px; color:var(--text2); line-height:1.8;">
-          Cada código QR almacena en formato JSON: <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">rut</code>, <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">nombre</code>, <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">cargo</code> y <code style="background:var(--bg); padding:1px 5px; border-radius:4px; font-family:'DM Mono',monospace; font-size:12px;">empresa</code>.
-          En la <strong>Etapa 2</strong> el escáner leerá este QR desde la cámara del móvil y registrará automáticamente la hora de entrada.
+        <div class="card-title">ℹ️ ¿Cómo funciona el nuevo sistema?</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px;">
+          <div style="background:var(--bg);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:20px;margin-bottom:6px;">1️⃣</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Genera el QR</div>
+            <div style="font-size:12px;color:var(--text2);">Cada QR contiene una URL única con el RUT del trabajador</div>
+          </div>
+          <div style="background:var(--bg);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:20px;margin-bottom:6px;">2️⃣</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Escanea con el celular</div>
+            <div style="font-size:12px;color:var(--text2);">Usa cualquier app lectora de QR — la cámara nativa abre el link automáticamente</div>
+          </div>
+          <div style="background:var(--bg);border-radius:var(--radius);padding:14px;">
+            <div style="font-size:20px;margin-bottom:6px;">3️⃣</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px;">Confirma la entrada</div>
+            <div style="font-size:12px;color:var(--text2);">Aparece la pantalla del trabajador con su nombre y hora — un toque para registrar</div>
+          </div>
         </div>
       </div>
     </div>
@@ -11519,29 +11532,30 @@ function previewQR() {
   qrInstance = null;
 }
 
+function getBaseURL() {
+  return window.location.origin + window.location.pathname;
+}
+
+function getWorkerURL(w) {
+  const base = getBaseURL();
+  const rut = encodeURIComponent(w.rut);
+  return `${base}?rut=${rut}`;
+}
+
 function generateQR() {
   const id = document.getElementById('qr-select').value;
   if (!id) { showToast('⚠️ Selecciona un trabajador', 'error'); return; }
   const w = state.workers.find(x => x.id === id);
   const outputArea = document.getElementById('qr-output-area');
 
-  const payload = JSON.stringify({
-    rut: w.rut,
-    nombre: w.nombre,
-    cargo: w.cargo,
-    jornada: w.jornada,
-    empresa: state.empresa.nombre || '',
-    obra: state.empresa.obra || '',
-    id: w.id
-  });
-
-  const svg = QRGen.toSVG(payload, 4);
-  outputArea.innerHTML = `<div id="qr-canvas-wrap" style="line-height:0">${svg}</div>`;
+  const url = getWorkerURL(w);
+  const svg = QRGen.toSVG(url, 4);
+  outputArea.innerHTML = `<div id="qr-canvas-wrap" data-url="${url}" style="line-height:0">${svg}</div>`;
   outputArea.classList.add('has-qr');
 
   document.getElementById('qr-label').innerHTML = `<strong>${w.nombre}</strong><br><span style="font-family:'DM Mono',monospace;font-size:11px">${w.rut}</span>`;
   document.getElementById('btn-download-qr').style.display = 'inline-flex';
-  showToast('✅ QR generado correctamente', 'success');
+  showToast('✅ QR generado — contiene URL de registro', 'success');
 }
 
 function downloadQR() {
@@ -11579,11 +11593,9 @@ function renderPrintSheet() {
   state.workers.forEach((w, i) => {
     const div = document.createElement('div');
     div.className = 'print-card';
-    const payload = JSON.stringify({
-      rut: w.rut, nombre: w.nombre, cargo: w.cargo,
-      empresa: state.empresa.nombre || '', id: w.id
-    });
-    const svg = QRGen.toSVG(payload, 3);
+    const base = window.location.origin + window.location.pathname;
+    const url = `${base}?rut=${encodeURIComponent(w.rut)}`;
+    const svg = QRGen.toSVG(url, 3);
     div.innerHTML = `
       <div style="display:inline-block;line-height:0">${svg}</div>
       ${showName ? `<div class="print-name">${w.nombre}</div>` : ''}
@@ -11818,6 +11830,96 @@ document.getElementById('manual-rut').addEventListener('input', function() {
 loadEmpresaForm();
 renderWorkers();
 updateStats();
+
+// ── Auto-registro por URL (?rut=...) ──
+(function checkURLRegistro() {
+  const params = new URLSearchParams(window.location.search);
+  const rut = params.get('rut');
+  if (!rut) return;
+
+  // Limpiar URL sin recargar
+  window.history.replaceState({}, '', window.location.pathname);
+
+  // Mostrar pantalla de registro automático
+  const decoded = decodeURIComponent(rut);
+  showAutoRegister(decoded);
+})();
+
+function showAutoRegister(rut) {
+  // Buscar trabajador
+  const w = state.workers.find(x => x.rut === rut);
+
+  // Crear overlay de registro
+  const overlay = document.createElement('div');
+  overlay.id = 'auto-register-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,0.85);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+  `;
+
+  if (w) {
+    const [bg, fg] = AVATAR_COLORS[w.colorIdx % AVATAR_COLORS.length];
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div style="width:72px;height:72px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin:0 auto 16px;">${initials(w.nombre)}</div>
+        <div style="font-size:22px;font-weight:700;color:#1A1916;margin-bottom:4px;">${w.nombre}</div>
+        <div style="font-size:14px;color:#6B6560;margin-bottom:4px;">${w.rut}</div>
+        <div style="font-size:13px;color:#9E9890;margin-bottom:24px;">${w.cargo} · ${w.jornada}</div>
+        <div style="background:#E8F5EF;border-radius:12px;padding:16px;margin-bottom:24px;">
+          <div style="font-size:13px;color:#0F4A33;margin-bottom:4px;">⏰ Hora de registro</div>
+          <div style="font-size:32px;font-weight:700;color:#1A6B4A;font-family:monospace;" id="auto-hora">${timeStr()}</div>
+          <div style="font-size:12px;color:#6B6560;margin-top:4px;" id="auto-fecha">${new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})}</div>
+        </div>
+        <button onclick="confirmAutoRegister('${w.id}')" style="width:100%;padding:14px;background:#1A6B4A;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px;">
+          ✅ Confirmar entrada
+        </button>
+        <button onclick="document.getElementById('auto-register-overlay').remove()" style="width:100%;padding:10px;background:#F0EDE6;color:#6B6560;border:none;border-radius:12px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          Cancelar
+        </button>
+      </div>`;
+
+    // Actualizar hora en tiempo real
+    const timer = setInterval(() => {
+      const el = document.getElementById('auto-hora');
+      if (el) el.textContent = timeStr();
+      else clearInterval(timer);
+    }, 1000);
+
+  } else {
+    // Trabajador no encontrado en este dispositivo
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:32px;max-width:380px;width:100%;text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+        <div style="font-size:18px;font-weight:700;color:#1A1916;margin-bottom:8px;">Trabajador no encontrado</div>
+        <div style="font-size:13px;color:#6B6560;margin-bottom:8px;">RUT: <strong style="font-family:monospace">${rut}</strong></div>
+        <div style="font-size:12px;color:#9E9890;margin-bottom:24px;">Este trabajador no está registrado en este dispositivo. Regístralo primero en la sección Trabajadores.</div>
+        <button onclick="document.getElementById('auto-register-overlay').remove()" style="width:100%;padding:12px;background:#1A6B4A;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          Entendido
+        </button>
+      </div>`;
+  }
+
+  document.body.appendChild(overlay);
+}
+
+function confirmAutoRegister(workerId) {
+  const w = state.workers.find(x => x.id === workerId);
+  if (!w) return;
+  registerScan({ rut: w.rut, nombre: w.nombre, cargo: w.cargo, jornada: w.jornada, empresa: state.empresa.nombre || '', obra: state.empresa.obra || '', id: w.id });
+  const overlay = document.getElementById('auto-register-overlay');
+  if (overlay) {
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:40px;max-width:380px;width:100%;text-align:center;">
+        <div style="font-size:72px;margin-bottom:16px;">✅</div>
+        <div style="font-size:22px;font-weight:700;color:#1A6B4A;margin-bottom:8px;">¡Registrado!</div>
+        <div style="font-size:16px;color:#1A1916;font-weight:500;margin-bottom:4px;">${w.nombre}</div>
+        <div style="font-size:14px;color:#6B6560;">${timeStr()}</div>
+      </div>`;
+    setTimeout(() => overlay.remove(), 2500);
+  }
+}
 </script>
 </body>
 </html>
